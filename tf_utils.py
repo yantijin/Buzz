@@ -4,7 +4,7 @@ import tensorflow as tf
 
 # conv layer
 def conv(inputs, output_num, name, kernel_size=5, stride_size=1, init_bias=0.0, conv_padding='SAME', stddev=0.1,
-         activation_func=tf.nn.relu, batch_normalization=False):
+         activation_func=tf.nn.relu):
     with tf.variable_scope(name):
         input_size = inputs.get_shape().as_list()[-1]
         # construct kernal and bias
@@ -16,8 +16,8 @@ def conv(inputs, output_num, name, kernel_size=5, stride_size=1, init_bias=0.0, 
         conv_layer = tf.nn.conv2d(inputs, conv_weights, [1, stride_size, stride_size, 1], padding=conv_padding)
         conv_layer = tf.nn.bias_add(conv_layer, conv_biases)
         
-        if batch_normalization:
-            conv_layer = tf.contrib.layers.batch_norm(conv_layer)
+        # if batch_normalization:
+        #     conv_layer = tf.contrib.layers.batch_norm(conv_layer)
 
         # activation function
         if activation_func:
@@ -25,15 +25,15 @@ def conv(inputs, output_num, name, kernel_size=5, stride_size=1, init_bias=0.0, 
         return conv_layer
 
 
-def deconv(inputs, output_num, name, kernal_size=5, stride_size=1, deconv_padding='SAME', \
-    std_dev=0.1, activation_func=tf.nn.relu, batch_normalization=False):
+def deconv(inputs, output_num, name, kernal_size=5, stride_size=1, deconv_padding='SAME',
+    std_dev=0.1, activation_func=tf.nn.relu):
     with tf.variable_scope(name):
         deconv_layer = tf.layers.conv2d_transpose(inputs, output_num, kernal_size, stride_size, padding=deconv_padding, name=name)
         deconv_bias = tf.get_variable('biases', [output_num], dtype=tf.float32, initializer=tf.initializers.random_normal(stddev=std_dev))
         deconv_layer = tf.nn.bias_add(deconv_layer, deconv_bias)
         
-        if batch_normalization:
-            deconv_layer = tf.contrib.layers.batch_norm(deconv_layer)
+        # if batch_normalization:
+        #     deconv_layer = tf.contrib.layers.batch_norm(deconv_layer)
 
         if activation_func:
             deconv_layer = activation_func(deconv_layer)
@@ -46,7 +46,7 @@ def lrn(inputs, depth_radius=2, alpha=0.0001, beta=0.75, bias=1.0):
 
 
 # 全连接层，如果输入为4维[batch_size, height, width, channels], reshape成 [batch_size, hei*wid*channels]
-def fc(inputs, output_size, name, init_bias=0.0, activation_func=tf.nn.relu, stddev=0.1, batch_normalization=False):
+def fc(inputs, output_size, name, activation_func=tf.nn.relu, stddev=0.1):
     input_shape = inputs.get_shape().as_list()
     with tf.variable_scope(name):
         # flatten the inputs and construct weight and bias
@@ -62,8 +62,8 @@ def fc(inputs, output_size, name, init_bias=0.0, activation_func=tf.nn.relu, std
         fc_layer = tf.matmul(inputs, fc_weights)
         fc_layer = tf.nn.bias_add(fc_layer, fc_biases)
         
-        if batch_normalization:
-            fc_layer = tf.contrib.layers.batch_norm(fc_layer)
+        # if batch_normalization:
+        #     fc_layer = tf.contrib.layers.batch_norm(fc_layer)
 
         # activate fully connection layer
         if activation_func:

@@ -16,21 +16,14 @@ class Buzz():
     # `x\in [-10, 10]`
     def build_q_net(self, x, outdimension=64):
         # x->z
-        # net = zs.BayesianNet()
         with tf.variable_scope('build_q_net', reuse=tf.AUTO_REUSE):
             lz_x = tf.reshape(x, [-1, 8, 16, 1])
 
             # 4 conv layers
             lz_x = conv(lz_x, outdimension*4, 'conv1',stride_size=2, activation_func=tf.nn.leaky_relu, batch_normalization=True)
-            
             lz_x = conv(lz_x, outdimension*2, 'conv2', activation_func=tf.nn.leaky_relu, batch_normalization=True)
-            
             lz_x = conv(lz_x, outdimension*2, 'conv3', stride_size=2, activation_func=tf.nn.leaky_relu, batch_normalization=True)
-            
             lz_x = conv(lz_x, outdimension, 'conv4', activation_func=tf.nn.leaky_relu,batch_normalization=True)
-            
-            
-
             # get z_mean and z_std by fully connection layer
             # shape [batch_size, z_dimension]
             with tf.name_scope('ZMEAN'):
@@ -38,8 +31,6 @@ class Buzz():
                 #z_mean = tf.layers.batch_normalization(z_mean)
             with tf.name_scope('ZSTD'):
                 z_std = fc(lz_x, self._z_dim, 'z_std', activation_func=tf.nn.softplus, batch_normalization=False)
-
-            
             # shape [batch_size, z_dimension]
             
             return z_mean, z_std
@@ -47,11 +38,9 @@ class Buzz():
 
     def genModel(self, z, in_dimension=64, output_num=128): 
         with tf.variable_scope('genModel', reuse=tf.AUTO_REUSE): 
-
-            batch_size = z.get_shape().as_list()[0] 
+            batch_size = z.get_shape().as_list()[0]
             # fully connection layer
             lx_z = fc(z, 512, 'fc', activation_func=None)
-
             # reshape and deconv layers
             lx_z = tf.reshape(lx_z, [-1, 2, 4, in_dimension])
             
