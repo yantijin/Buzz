@@ -59,7 +59,7 @@ class Buzz():
             lx_z = tf.reshape(lx_z, [batch_size, resShape[1] * resShape[2] * resShape[3]])
 
             lx_z = fc(lx_z, output_num, 'deconvOut', activation_func=None)
-            lx_z = tf.clip_by_value(lx_z, -10, 10)
+            # lx_z = tf.clip_by_value(lx_z, -10, 10)
 
             GVarList = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'genModel')
 
@@ -116,7 +116,8 @@ class Buzz():
         with tf.name_scope('hatX'):
             Xnew = kxi * (x - Xhat) + Xhat
         with tf.name_scope('get_gradient_penalty'):
-            gradients = tf.gradients(self.discNet(Xnew), [Xnew])[0]
+            disres,_ = self.discNet(Xnew)
+            gradients = tf.gradients(disres, [Xnew])[0]
             # gradients = tf.clip_by_value(gradients, -10, 10)
 
             slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=1))
@@ -134,7 +135,7 @@ class Buzz():
                    - window_size * tf.math.log(la)
             Wloss = -la * tf.math.abs(wgan_loss) + negKL - logZ
 
-        return Xhat, negKL, wgan_loss, gradientPenalty, vloss, Wloss, logZ, la, VVarList, GVarList, DVarList
+        return Xhat, negKL, wgan_loss, gradientPenalty, -vloss, -Wloss, logZ, la, VVarList, GVarList, DVarList
 
 
 def readData(fileName):
@@ -198,12 +199,19 @@ if __name__ == "__main__":
     model = Buzz(z_dimension)
     Xhat, negKL, wgan_loss, gradientPenalty, vloss, Wloss, logZ, la, VVarList, GVarList, DVarList = model.getLoss(x, eta)
 
-    Dis_loss = DisOptimizer.minimize(-vloss)
-    Gen_loss = GenOptimizer.minimize(-Wloss)
+    VVarList.extend(GVarList)
+    VVarList.append(la)
+
+
+
+    Dis_loss = DisOptimizer.minimize(vloss, var_list=VVarList)
+    Gen_loss = GenOptimizer.minimize(Wloss, var_list=DVarList)
 
     trainDataLen = len(train_values)
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     # sess = tf.Session()
 
     sess.run(tf.global_variables_initializer())
@@ -226,28 +234,19 @@ if __name__ == "__main__":
             inputs = []
             for i in range(b0):
                 for j in range(s0):
-                    inputs.append(train_values[selectedOmega[i] + j - window_size + 1: selectedOmega[
-                                                                                           i] + j + 1])  # [bs, window_size]
+                    inputs.append(train_values[selectedOmega[i] + j - window_size + 1: selectedOmega[i] + j + 1])  # [bs, window_size]
 
             # print(np.shape(inputs))
             if critic % 4 == 3:
                 _, GenLoss, WL, GP, _KL, LZ, barX, LAM = sess.run(
-                    [Gen_loss, -Wloss, wgan_loss, gradientPenalty, negKL, logZ, Xhat, la], feed_dict={x: inputs})
-                print('epoch: {} GenLoss: {} s0: {}  b0: {}, wgan_loss: {}, GP: {}, -KL:{}, LZ:{}, LAM:{}'.format(epoch,
-                                                                                                                  GenLoss,
-                                                                                                                  s0,
-                                                                                                                  b0,
-                                                                                                                  WL,
-                                                                                                                  GP,
-                                                                                                                  _KL,
-                                                                                                                  LZ,
-                                                                                                                  LAM))
+                    [Gen_loss, Wloss, wgan_loss, gradientPenalty, negKL, logZ, Xhat, la], feed_dict={x: inputs})
+                print('epoch: {} GenLoss: {} s0: {}  b0: {}, wgan_loss: {}, GP: {}, -KL:{}, LZ:{}, LAM:{}'.format(epoch, GenLoss, s0, b0, WL, GP, _KL, LZ, LAM))
             else:
-                _, DisLoss, WL, GP, barX, LAM = sess.run([Dis_loss, -vloss, wgan_loss, gradientPenalty, Xhat, la],
+                _, DisLoss, WL, GP, barX, LAM = sess.run([Dis_loss, vloss, wgan_loss, gradientPenalty, Xhat, la],
                                                          feed_dict={x: inputs})
-                print(
-                    'epoch: {} DisLoss: {} s0: {}  b0: {}, wgan_loss: {}, GP: {}, LAM:{}'.format(epoch, DisLoss, s0, b0,
-                                                                                                 WL, GP, LAM))
+                # print(
+                #     'epoch: {} DisLoss: {} s0: {}  b0: {}, wgan_loss: {}, GP: {}, LAM:{}'.format(epoch, DisLoss, s0, b0,
+                #                                                                                  WL, GP, LAM))
                 # print(barX)
         epoch += 1
 
